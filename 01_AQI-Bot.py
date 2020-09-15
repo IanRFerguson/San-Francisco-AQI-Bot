@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3.6
 # coding: utf-8
 
 # ------------ IMPORTS
@@ -16,14 +16,21 @@ from time import sleep
 
 # ------------ ENVIRONMENT
 
-token = open("TOKEN.txt").read()
+token = open("TOKEN.txt").read()                                # Read in token from WAQI API
 
-with open("Email-Credentials.txt", "r") as file:
+with open("Email-Credentials.txt", "r") as file:                # Read in email address + password
     credentials = json.load(file)
 
 # ------------ HELPER FUNCTIONS
 
 def scrapeAQI(CITY="San Francisco"):
+
+    """
+    Scrapes JSON file from WAQI API
+    Returns only the AQI
+
+    Note: Default city is San Francisco, but can be overwritten
+    """
 
     base = "https://api.waqi.info"
     r = requests.get(base + f"/feed/{CITY}/?token={token}")
@@ -31,6 +38,10 @@ def scrapeAQI(CITY="San Francisco"):
 
 
 def defineQuality(AQI):
+
+    """
+    Determines how AQI value is rated by EPA
+    """
 
     if 0 < AQI < 50:
         return "good"
@@ -56,6 +67,10 @@ def defineQuality(AQI):
 
 def formatEmail(NAME):
 
+    """
+    Impute relevant end user information into HTML body for email
+    """
+
     body = ("""Good morning {},
     <br><br>
     The current air quality in San Francisco, California is <b>{}</b>.
@@ -70,32 +85,45 @@ def formatEmail(NAME):
 
 
 def today():
+
+    """
+    Returns current date in longform, for imputation to email subject
+    """
+
     return datetime.datetime.now().strftime("%x")
 
 
 def sendEmail(NAME, EMAIL):
 
+    """
+    Wrap all of the above into an email to folks on mailing list
+    """
+
+    # Outgoing email setup
     port = 587
     smtp_server = 'smtp.gmail.com'
     my_address = credentials["Email Address"]
     password = credentials["Password"]
     receiver_address = EMAIL
 
+    # Structure body of email
     body = formatEmail(NAME)
 
+    # Connect to server with credentials
     s = smtplib.SMTP(host = smtp_server, port = port)
     s.ehlo()
     s.starttls()
     s.login(user = my_address, password = password)
 
+    # Structure HTML output
     msg = MIMEMultipart()
     msg["From"] = "Bay Area AQI Bot"
     msg["To"] = EMAIL
     msg["Subject"] = ("San Francisco AQI: {}".format(str(today())))
     msg.attach(MIMEText(body, "html"))
 
+    # Send email + Close server connection
     s.sendmail(my_address, receiver_address, msg.as_string())
-
     s.quit()
 
 
@@ -103,10 +131,11 @@ def sendEmail(NAME, EMAIL):
 
 mailingList = pd.read_excel("Mailing-List.xlsx")
 
+# Loop through mailing list and send email
 for index, NAME in enumerate(mailingList["NAME"]):
     sendEmail(NAME, mailingList["EMAIL"][index])
 
     print("Contacting {}...".format(NAME))
     sleep(1)
 
-print("All addresses contacted")
+print("\nAll addresses contacted")
